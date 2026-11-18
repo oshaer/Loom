@@ -1,0 +1,87 @@
+# RUN LOOM FROM GITHUB
+# This adds a "Run workflow" button under the repository's Actions tab. Choose the
+# settings in the form, and GitHub runs the simulation on one of its own computers.
+# When it finishes (usually within a minute), the run's page shows the full
+# plain-English log, and the log can be downloaded from the "Artifacts" section.
+name: Run Loom
+on:
+  workflow_dispatch:            # run by hand, from the Actions tab
+    inputs:
+      version:
+        description: "Which version"
+        type: choice
+        options: ["loomrl (version 2, with trust)", "bugglemaze (version 1, rules)"]
+        default: "loomrl (version 2, with trust)"
+      size:
+        description: "Maze size (version 2)"
+        type: choice
+        options: [small, medium, large, huge]
+        default: medium
+      seed:
+        description: "Maze number (leave empty for a random maze)"
+        required: false
+        default: ""
+      buggles:
+        description: "Number of buggles"
+        default: "8"
+      faulty:
+        description: "Buggles with faulty sensors (version 2)"
+        default: "2"
+      trust:
+        description: "Use trust (version 2)"
+        type: boolean
+        default: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run the simulation
+        env:
+          VERSION: ${{ inputs.version }}
+          SIZE: ${{ inputs.size }}
+          SEED: ${{ inputs.seed }}
+          BUGGLES: ${{ inputs.buggles }}
+          FAULTY: ${{ inputs.faulty }}
+          TRUST: ${{ inputs.trust }}
+        run: |
+          set -e
+          SEEDARG=""
+          if [ -n "$SEED" ]; then SEEDARG="--seed $SEED"; fi
+          if [[ "$VERSION" == loomrl* ]]; then
+            cd loomrl
+            TRUSTARG=""
+            if [ "$TRUST" != "true" ]; then TRUSTARG="--no-trust"; fi
+            python -m loomrl --size "$SIZE" --buggles "$BUGGLES" --faulty "$FAULTY" \
+              $TRUSTARG $SEEDARG --watch none --no-color --log logs/loom.log | tee snapshot.txt
+          else
+            cd bugglemaze
+            python -m bugglemaze --buggles "$BUGGLES" $SEEDARG --watch none --no-color \
+              --log logs/loom.log | tee snapshot.txt
+          fi
+
+      - name: Show the log on this page
+        run: |
+          DIR=$([[ "${{ inputs.version }}" == loomrl* ]] && echo loomrl || echo bugglemaze)
+          {
+            echo "## The log"
+            echo '```text'
+            cat "$DIR/logs/loom.log"
+            echo '```'
+            echo "## The maze at the end of the run"
+            echo '```text'
+            cat "$DIR/snapshot.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cp "$DIR/logs/loom.log" loom-log.txt
+
+      - name: Keep the log for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: loom-log
+          path: loom-log.txt

@@ -1,0 +1,23 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - name: Version 1, rule-based buggles
+        run: cd bugglemaze && python -m pytest -q
+      - name: Version 2, Loom RL with trust
+        run: cd loomrl && python -m pytest -q
+      - name: The website builds
+        run: |
+          pip install markdown
+          python site/build_site.py /tmp/_site
+      - name: Web page is up to date with loomrl
+        run: |
+          python web/build.py --out /tmp/index.html
+          diff -q /tmp/index.html web/index.html

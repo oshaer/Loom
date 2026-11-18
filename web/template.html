@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loom</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #181a1f; --panel: #1f2228; --line: #2e323a; --fg: #e2e6ec; --dim: #969eaa;
+    --green: #66d678; --red: #eb5757; --yellow: #e8c45a; --magenta: #d678e6; --cyan: #5ad2dc;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body { font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { margin-bottom: 18px; }
+  h1 { font-family: var(--serif); font-size: 40px; margin: 0; letter-spacing: .5px; }
+  .made { color: var(--dim); margin: 4px 0 12px; font-size: 14px; }
+  .made span { display: block; }
+  .intro { max-width: 760px; margin: 0; }
+  details.about { max-width: 760px; margin: 10px 0 0; color: var(--dim); }
+  details.about summary { cursor: pointer; color: var(--fg); }
+  details.about p { margin: 8px 0; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; background: var(--panel);
+              border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 18px 0 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
+  .field select, .field input[type=number] { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+              border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 14px; min-width: 84px; }
+  .field input[type=range] { width: 140px; }
+  .check { flex-direction: row; align-items: center; gap: 6px; font-size: 13px; color: var(--fg); padding-bottom: 6px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+  button { background: #2b3038; color: var(--fg); border: 1px solid #3a404a; border-radius: 7px; padding: 7px 13px;
+           font: inherit; font-size: 14px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--green); }
+  button.primary { background: #23462b; border-color: #2f6b3b; }
+  button:disabled { opacity: .45; cursor: default; }
+
+  .stage { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+  pre { margin: 0; font-family: var(--mono); white-space: pre; }
+  #maze { font-size: 14px; line-height: 1.18; }
+  .mazebox { flex: 0 1 auto; max-width: 100%; overflow-x: auto; }
+  #panel { font-size: 13px; line-height: 1.35; }
+  .panelbox { flex: 1 1 380px; min-width: 0; overflow-x: auto; }
+  .b { font-weight: 700; }
+
+  .status { color: var(--dim); font-size: 13px; margin: 10px 0 0; min-height: 1.4em; }
+  .loading { padding: 40px 0; color: var(--dim); }
+  .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; max-width: 360px; margin-top: 10px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--green); transition: width .3s; }
+
+  .logwrap { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .logwrap h2 { font-family: var(--serif); font-size: 24px; margin: 0 0 6px; }
+  .logwrap .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; color: var(--dim); font-size: 13px; }
+  #log { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; font-size: 13px;
+         line-height: 1.45; max-height: 70vh; overflow: auto; white-space: pre; }
+  footer { margin-top: 30px; color: var(--dim); font-size: 12px; }
+  footer a { color: var(--dim); }
+  @media (max-width: 640px) { h1 { font-size: 32px; } .buttons { margin-left: 0; } #panel { font-size: 12px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Loom</h1>
+    <p class="made"><span>Created by Katie Dunbar on November 18, 1996.</span><span>This is a version from 2026.</span></p>
+    <p class="intro">Katie Dunbar wrote the first version of Loom in the fall of 1996, as a doctoral student at the
+      MIT AI Lab. Her question was how a group of learning programs should decide whose reports to believe. In Loom,
+      eight agents she called buggles learn by trial and error to cross a maze and post what they find to a shared
+      board. Two of them have faulty sensors, and the others are never told which. Each buggle builds a record of how
+      often its reports agree with what the others see, and the board weighs every report by that record. Katie wanted
+      to know whether a group can learn from all of its members without being led astray by the few who are wrong.</p>
+    <details class="about">
+      <summary>What you will see</summary>
+      <p><b>S</b> is the start and <b>G</b> the finish; <span style="color:var(--yellow)">~</span> is mud, which costs two extra turns.
+        The numbers are buggles, each in its own color, and <b>*</b> marks two or more in one square.</p>
+      <p><span style="color:var(--red)">x</span> is a dead end the team believes, and <span style="color:var(--magenta)">?</span> is a
+        dead-end claim it is ignoring, almost always from a faulty buggle. <span style="color:var(--green)">Green dots</span> are the
+        route the team has learned; while the route is still incomplete it shows in <span style="color:var(--cyan)">teal</span>.</p>
+      <p>In the panel, watch the Trust column. The Sensor column is there for you: the team is never told which buggles are faulty.
+        When the run ends, the full log appears below, written for readers outside the field.</p>
+    </details>
+  </header>
+
+  <div class="controls">
+    <label class="field">Maze
+      <select id="size"><option value="small">Small, 12 by 8</option><option value="medium">Medium, 20 by 12</option>
+        <option value="large">Large, 30 by 18</option></select></label>
+    <label class="field">Maze number <input id="seed" type="number" min="1" max="999999" value="4"></label>
+    <label class="field">Buggles <select id="buggles"></select></label>
+    <label class="field">Faulty <select id="faulty"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></label>
+    <label class="field check"><input id="trust" type="checkbox" checked> Trust</label>
+    <label class="field check"><input id="compare" type="checkbox" checked> Compare with naive board</label>
+    <label class="field check"><input id="trails" type="checkbox"> Trails</label>
+    <label class="field">Speed <input id="speed" type="range" min="0" max="8" value="3"><span id="speedlabel"></span></label>
+    <div class="buttons">
+      <button id="start" class="primary" disabled>Start</button>
+      <button id="pause" disabled>Pause</button>
+      <button id="step" disabled>Step</button>
+      <button id="skip" disabled>Skip round</button>
+      <button id="toend" disabled>Run to end</button>
+      <button id="logbtn" disabled>Show log</button>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">Loading Python in your browser. The first visit downloads about 10 MB; after that it is cached.
+    <div class="bar"><i id="loadbar"></i></div></div>
+
+  <div class="stage" id="stage" hidden>
+    <div class="mazebox"><pre id="maze"></pre></div>
+    <div class="panelbox"><pre id="panel"></pre></div>
+  </div>
+  <p class="status" id="status"></p>
+
+  <section class="logwrap" id="logwrap" hidden>
+    <h2>The log</h2>
+    <p class="row" id="lognote"></p>
+    <div class="row"><button id="copylog">Copy log</button><button id="downloadlog">Download log</button><span id="logmsg"></span></div>
+    <pre id="log"></pre>
+  </section>
+
+  <footer>The page runs the same Python program as the terminal version, using
+    <a href="https://pyodide.org">Pyodide</a> to run Python in the browser. Everything runs on your device.</footer>
+</div>
+
+<script>
+// Places to load Pyodide from, tried in order until one works.
+const PYODIDE_URLS = __PYODIDE_URLS__;
+const SOURCES = __SOURCES__;
+const DRIVER = __DRIVER__;
+</script>
+<script>
+/* HOW THIS PAGE WORKS
+   1. Load Pyodide, which runs Python inside the browser.
+   2. Write the Loom source files (stored above as text) into Pyodide's file space,
+      and create a Driver (see driver.py).
+   3. Many times a second (requestAnimationFrame), advance the simulation a few
+      ticks and redraw. The maze and panel arrive as text with terminal colour
+      codes, which ansiToHtml turns into coloured HTML.
+   4. When the run ends, finish the comparison run a little at a time, then show the log.
+   The whole script sits inside (() => { ... })(), a function that runs at once,
+   so its variables do not clash with anything else on the page. */
+(() => {
+  // $("maze") is shorthand for document.getElementById("maze").
+  const $ = id => document.getElementById(id);
+  // The speed slider picks one of these: simulation ticks per second.
+  const SPEEDS = [2, 5, 15, 40, 100, 250, 700, 2000, Infinity];       // ticks per second
+  const SPEED_NAMES = ["very slow", "slow", "gentle", "normal", "brisk", "fast", "faster", "very fast", "flat out"];
+  let py = null, driver = null, playing = false, toEnd = false, lastT = 0, carry = 0, logShown = false;
+  let logOpen = false, lastLogRead = 0;   // is the log panel open, and when we last refreshed it
+
+  for (let n = 1; n <= 12; n++) $("buggles").add(new Option(String(n), String(n), n === 8, n === 8));
+  if (window.innerWidth < 700) $("size").value = "small"; else $("size").value = "medium";
+  const speedLabel = () => { $("speedlabel").textContent = SPEED_NAMES[$("speed").value]; };
+  $("speed").oninput = speedLabel; speedLabel();
+
+  // ---- ANSI colour codes from the Python painter -> HTML -----------------
+  const BASIC = {30: "#3c3c3c", 31: "var(--red)", 32: "var(--green)", 33: "var(--yellow)", 34: "#5a96f0",
+                 35: "var(--magenta)", 36: "var(--cyan)", 37: "var(--fg)"};
+  function xterm(n) {
+    if (n < 16) return ["#000","#c33","#3c3","#cc3","#33c","#c3c","#3cc","#ccc","#666","#f66","#6f6","#ff6","#66f","#f6f","#6ff","#fff"][n];
+    if (n >= 232) { const v = 8 + (n - 232) * 10; return `rgb(${v},${v},${v})`; }
+    n -= 16; const s = [0, 95, 135, 175, 215, 255];
+    return `rgb(${s[Math.floor(n / 36)]},${s[Math.floor(n / 6) % 6]},${s[n % 6]})`;
+  }
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Split the text at each colour code. Plain text is escaped (so "<" shows as "<"
+  // and cannot be read as HTML); each code closes the previous <span> and opens a
+  // new one in the new colour.
+  function ansiToHtml(text) {
+    let out = "", color = null, bold = false, dim = false, open = false;
+    const parts = text.split(/\x1b\[([0-9;]*)m/);
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 0) { if (parts[i]) out += esc(parts[i]); continue; }
+      const codes = parts[i] === "" ? [0] : parts[i].split(";").map(Number);
+      for (let k = 0; k < codes.length; k++) {
+        const c = codes[k];
+        if (c === 0) { color = null; bold = dim = false; }
+        else if (c === 1) bold = true;
+        else if (c === 2) dim = true;
+        else if (c === 38 && codes[k + 1] === 5) { color = xterm(codes[k + 2]); k += 2; }
+        else if (BASIC[c]) color = BASIC[c];
+      }
+      if (open) out += "</span>";
+      const style = (color ? `color:${color};` : "") + (dim ? "opacity:.55;" : "");
+      out += `<span class="${bold ? "b" : ""}" style="${style}">`; open = true;
+    }
+    if (open) out += "</span>";
+    return out;
+  }
+
+  function getStatus() {                       // copy to plain JS and free the Python proxy
+    const p = driver.status(); const o = p.toJs({dict_converter: Object.fromEntries}); p.destroy(); return o;
+  }
+
+  // ---- drawing -------------------------------------------------------------
+  // Shrink or grow the maze's font so the whole maze fits the screen width.
+  function fitMaze() {
+    const pre = $("maze"), box = pre.parentElement;
+    const cols = (pre.textContent.split("\n")[0] || "").length || 1;
+    const avail = Math.min(box.parentElement.clientWidth, window.innerWidth - 32);
+    const size = Math.max(6, Math.min(15, avail / (cols * 0.61)));
+    pre.style.fontSize = size.toFixed(2) + "px";
+  }
+  function draw() {
+    if (!driver) return;
+    $("maze").innerHTML = ansiToHtml(driver.maze());
+    $("panel").innerHTML = ansiToHtml(driver.panel());
+    fitMaze();
+    const st = getStatus();
+    let msg;
+    if (!st.finished) msg = `Round ${st.round} of ${st.rounds}, tick ${st.tick}` + (playing ? "" : ". Paused.");
+    else if (!st.base_done) msg = `All ${st.rounds} rounds done. Running the same maze on a naive board for comparison: round ${st.base_round} of ${st.rounds}.`;
+    else msg = `Done. ` + (st.route != null ? `The learned route takes ${st.route} turns; the fastest possible is ${st.fastest}.` : `No complete route learned.`);
+    $("status").textContent = msg;
+    return st;
+  }
+
+  // ---- the log panel -------------------------------------------------------
+  // The log is written to a file inside Pyodide as the run goes. While the panel
+  // is open we read that file again at most twice a second, and keep the view
+  // pinned to the bottom if the reader was already there.
+  function refreshLog(force) {
+    if (!driver || !logOpen) return;
+    const now = performance.now();
+    if (!force && now - lastLogRead < 500) return;
+    lastLogRead = now;
+    const box = $("log"), text = driver.log_text();
+    if (text === box.textContent) return;
+    const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 8;
+    box.textContent = text;
+    if (atBottom && !logShown) box.scrollTop = box.scrollHeight;
+  }
+  function setLogOpen(open) {
+    logOpen = open;
+    $("logwrap").hidden = !open;
+    $("logbtn").textContent = open ? "Hide log" : "Show log";
+    $("lognote").textContent = logShown ? "The run is complete."
+      : "The log is written as the run goes: an opening now, a summary after every 10 rounds, and the results at the end.";
+    refreshLog(true);
+  }
+
+  // ---- the main loop --------------------------------------------------------
+  // Called by the browser before every screen refresh (about 60 times a second).
+  // `carry` keeps fractions of a tick, so slow speeds still advance smoothly.
+  // At full speed, the page simulates for 30 milliseconds per frame, then draws.
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (!driver) return;
+    const dt = Math.min(0.25, (t - lastT) / 1000 || 0); lastT = t;
+    let st = getStatus();
+    if (!st.finished && (playing || toEnd)) {
+      const rate = toEnd ? Infinity : SPEEDS[$("speed").value];
+      if (rate === Infinity) {
+        const until = performance.now() + 30;
+        while (performance.now() < until && !driver.tick(25)) {}
+      } else {
+        carry += rate * dt;
+        const n = Math.floor(carry); carry -= n;
+        if (n) driver.tick(n);
+      }
+      st = draw();
+    } else if (st.finished && !st.base_done) {
+      const until = performance.now() + 30;
+      while (performance.now() < until && !driver.base_work(300)) {}
+      st = draw();
+    }
+    if (st && st.finished && st.base_done && !logShown) {
+      driver.finalize(); logShown = true; playing = toEnd = false;
+      setLogOpen(true); $("log").scrollTop = 0;
+      draw(); setButtons();
+    }
+    refreshLog(false);
+  }
+
+  function setButtons() {
+    const live = !!driver && !logShown;
+    $("pause").disabled = !live; $("step").disabled = !live || playing;
+    $("skip").disabled = !live; $("toend").disabled = !live;
+    $("pause").textContent = playing ? "Pause" : "Play";
+    $("logbtn").disabled = !driver;
+    $("start").textContent = driver ? "Restart" : "Start";
+  }
+
+  // Start a run with the current settings. Python objects handed to JavaScript
+  // must be freed with destroy() when no longer needed.
+  function start() {
+    if (driver) { try { driver.close(); } catch (e) {} driver.destroy(); }
+    const seed = Math.max(1, Math.min(999999, parseInt($("seed").value, 10) || 1));
+    $("seed").value = seed;
+    const Driver = py.globals.get("Driver");
+    driver = Driver($("size").value, seed, +$("buggles").value, +$("faulty").value,
+                    $("trust").checked, $("compare").checked, $("trails").checked);
+    Driver.destroy();
+    logShown = false; toEnd = false; playing = true; carry = 0;
+    $("stage").hidden = false;
+    setLogOpen(logOpen);
+    draw(); setButtons();
+  }
+
+  $("start").onclick = start;
+  $("pause").onclick = () => { playing = !playing; setButtons(); draw(); };
+  $("step").onclick = () => { driver.tick(1); draw(); };
+  $("skip").onclick = () => { driver.skip_round(); draw(); };
+  $("toend").onclick = () => { toEnd = true; setButtons(); };
+  $("logbtn").onclick = () => {
+    setLogOpen(!logOpen);
+    if (logOpen) $("logwrap").scrollIntoView({behavior: "smooth", block: "start"});
+  };
+  ["size", "buggles", "faulty", "trust", "compare", "trails"].forEach(id => $(id).onchange = () => { if (driver) start(); });
+  window.addEventListener("resize", fitMaze);
+
+  $("copylog").onclick = async () => {
+    try { await navigator.clipboard.writeText($("log").textContent); $("logmsg").textContent = "Copied."; }
+    catch (e) { $("logmsg").textContent = "Copy was blocked here. Select the text below and copy it by hand."; }
+  };
+  // Inside the Claude viewer, files are offered through its downloads capability;
+  // anywhere else (GitHub Pages, a local copy) an ordinary download link works.
+  const savePromise = (window.claude && claude.use) ? claude.use("downloads").catch(() => null)
+                                                    : Promise.resolve(undefined);
+  $("downloadlog").onclick = async () => {
+    const text = $("log").textContent, filename = `loom-maze-${$("seed").value}.txt`;
+    const downloads = await savePromise;
+    if (downloads) {
+      try { await downloads.save({filename, data: text}); $("logmsg").textContent = "Saved."; }
+      catch (e) {
+        $("logmsg").textContent = e && e.code === "declined" ? "Download cancelled."
+          : e && e.code === "rate_limited" ? "Another download is waiting; try again in a moment."
+          : "Downloads are not available here; use Copy log instead.";
+      }
+      return;
+    }
+    if (downloads === null) { $("logmsg").textContent = "Downloads are not available here; use Copy log instead."; return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], {type: "text/plain"})); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  // ---- start Python ---------------------------------------------------------
+  function addScript(src) {
+    return new Promise((ok, fail) => {
+      const el = document.createElement("script");
+      el.src = src; el.onload = ok; el.onerror = () => { el.remove(); fail(new Error("could not load " + src)); };
+      document.head.appendChild(el);
+    });
+  }
+  // Try each Pyodide address in turn until one loads.
+  async function loadFirstPyodide() {
+    let last;
+    for (const url of PYODIDE_URLS) {
+      try {
+        if (typeof loadPyodide === "undefined") await addScript(url + "pyodide.js");
+        return await loadPyodide({indexURL: url});
+      } catch (e) { last = e; window.loadPyodide = undefined; }
+    }
+    throw last;
+  }
+  (async () => {
+    try {
+      $("loadbar").style.width = "20%";
+      py = await loadFirstPyodide();
+      $("loadbar").style.width = "80%";
+      py.FS.mkdirTree("/home/pyodide/loomrl");
+      for (const [name, code] of Object.entries(SOURCES)) py.FS.writeFile("/home/pyodide/loomrl/" + name, code);
+      py.FS.writeFile("/home/pyodide/loom_driver.py", DRIVER);
+      py.runPython("import sys; sys.path.insert(0, '/home/pyodide')\nfrom loom_driver import Driver");
+      $("loadbar").style.width = "100%";
+      $("loading").hidden = true;
+      $("start").disabled = false;
+      requestAnimationFrame(frame);
+      start();
+    } catch (e) {
+      $("loading").textContent = "Python could not load in this browser: " + e;
+    }
+  })();
+})();
+</script>
+</body>
+</html>
